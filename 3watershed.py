@@ -72,7 +72,7 @@ ax[0].imshow(normalizedImg, cmap=plt.cm.gray, interpolation='nearest')
 ax[0].set_title('Overlapping objects')
 ax[1].imshow(-distance, cmap='gray', interpolation='nearest')
 ax[1].set_title('Distances')
-ax[2].imshow(labels, cmap="gray", interpolation='nearest')
+ax[2].imshow(labels, cmap="jet", interpolation='nearest')
 ax[2].set_title('Separated objects')
 
 for a in ax:
@@ -86,16 +86,76 @@ plt.show()
 ###############################################################################
 
 #Liste des valeurs comprises dans les labels
-labels = 255 - labels
 valeurs_wat = []
-for i in range(255):
-    if i in labels:
-        if i not in valeurs_wat:
-            valeurs_wat.append(i)
+for i in range(1, 256):
+    for ligne in labels:
+        if i in ligne:
+            if i not in valeurs_wat:
+                valeurs_wat.append(i)
+
+labelsT = labels.transpose()
 
 
+#for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur)
+i = 26
+#trouver le pixel du haut gauche
+pixHaut = [0, 0] #[y, x]
+found = False #booléen qui annonce si on a trouvé le pixel ou pas
+#Trouver la ligne
+for ligne in range(labels.shape[0]):
+    for colonne in range(labels.shape[1]):
+        if i == labels[ligne, colonne] and not found:
+            pixHaut[0] = ligne
+            break
+    if found:
+        break
+found = False
+#Trouver la colonne
+for ligne in range(labelsT.shape[0]):
+    for colonne in range(labelsT.shape[1]):
+        if i == labelsT[ligne, colonne] and not found:
+            pixHaut[1] = ligne
+            break
+    if found:
+        break
 
+#Trouver le pixel du bas droit
+pixBas = [0, 0]
 
+for ligne in range(0, labels.shape[0], -1):
+    for colonne in range(labels.shape[1]):
+        if i == labels[ligne, colonne] and not found:
+            pixBas[0] = ligne
+            break
+    if found:
+        break
+    
+
+#Trouver la colonne
+for ligne in range(0, labelsT.shape[0], -1):
+    for colonne in range(labelsT.shape[1]):
+        if i == labelsT[ligne, colonne] and not found:
+            pixBas[1] = ligne
+            break
+    if found:
+        break
+# Création du rectangle de rognage
+#marges
+pixHaut[0] = max([pixHaut[0] - 10, 0])
+pixHaut[1] = max([pixHaut[1] - 10, 0])
+pixBas[0] = max([pixBas[0] + 10, 0])
+pixBas[1] = max([pixBas[1] + 10, 0])
+
+arg1 = min([pixHaut[0], pixBas[0]])
+arg2 = max([pixHaut[0], pixBas[0]])
+arg3 = min([pixHaut[1], pixBas[1]])
+arg4 = max([pixHaut[1], pixBas[1]])
+
+box = (pixHaut[1], pixHaut[0], pixBas[1], pixBas[0])
+cell = labels[arg1:arg2, arg3:arg4]
+
+plt.imshow(cell, cmap = "jet")
+plt.show()
 
 
 
