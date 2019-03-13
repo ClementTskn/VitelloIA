@@ -87,75 +87,98 @@ plt.show()
 
 #Liste des valeurs comprises dans les labels
 valeurs_wat = []
+allcells = []
 for i in range(1, 256):
     for ligne in labels:
         if i in ligne:
             if i not in valeurs_wat:
                 valeurs_wat.append(i)
 
+
+
+#labels = np.array([[0,0,0,0,0],[0 ,0, 1, 0, 0],[0, 1, 1, 1, 0],[0, 0, 1, 0, 0],[0,0,0,0,0]])
 labelsT = labels.transpose()
-
-
-#for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur)
-i = 26
-#trouver le pixel du haut gauche
-pixHaut = [0, 0] #[y, x]
-found = False #booléen qui annonce si on a trouvé le pixel ou pas
-#Trouver la ligne
-for ligne in range(labels.shape[0]):
-    for colonne in range(labels.shape[1]):
-        if i == labels[ligne, colonne] and not found:
-            pixHaut[0] = ligne
+print(labels)
+for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur
+    #trouver le pixel du haut gauche
+    pixHaut = [0, 0] #[y, x]
+    found = False #booléen qui annonce si on a trouvé le pixel ou pas
+    #Trouver la ligne
+    for ligne in range(labels.shape[0]):
+        for colonne in range(labels.shape[1]):
+            if i == labels[ligne, colonne] and not found:
+                pixHaut[0] = ligne
+                found = True
+                break
+        if found:
             break
-    if found:
-        break
-found = False
-#Trouver la colonne
-for ligne in range(labelsT.shape[0]):
-    for colonne in range(labelsT.shape[1]):
-        if i == labelsT[ligne, colonne] and not found:
-            pixHaut[1] = ligne
+    found = False
+    #Trouver la colonne
+    for ligne in range(labelsT.shape[0]):
+        for colonne in range(labelsT.shape[1]):
+            if i == labelsT[ligne, colonne] and not found:
+                pixHaut[1] = ligne
+                found = True
+                break
+        if found:
             break
-    if found:
-        break
-
-#Trouver le pixel du bas droit
-pixBas = [0, 0]
-
-for ligne in range(0, labels.shape[0], -1):
-    for colonne in range(labels.shape[1]):
-        if i == labels[ligne, colonne] and not found:
-            pixBas[0] = ligne
-            break
-    if found:
-        break
+    found = False
+    #Trouver le pixel du bas droit
+    pixBas = [0, 0]
     
-
-#Trouver la colonne
-for ligne in range(0, labelsT.shape[0], -1):
-    for colonne in range(labelsT.shape[1]):
-        if i == labelsT[ligne, colonne] and not found:
-            pixBas[1] = ligne
+    for ligne in range(labels.shape[0]-1, -1, -1):
+        for colonne in range(labels.shape[1]):
+            if i == labels[ligne, colonne] and not found:
+                pixBas[0] = ligne
+                found = True
+                break
+        if found:
             break
-    if found:
-        break
-# Création du rectangle de rognage
-#marges
-pixHaut[0] = max([pixHaut[0] - 10, 0])
-pixHaut[1] = max([pixHaut[1] - 10, 0])
-pixBas[0] = max([pixBas[0] + 10, 0])
-pixBas[1] = max([pixBas[1] + 10, 0])
-
-arg1 = min([pixHaut[0], pixBas[0]])
-arg2 = max([pixHaut[0], pixBas[0]])
-arg3 = min([pixHaut[1], pixBas[1]])
-arg4 = max([pixHaut[1], pixBas[1]])
-
-box = (pixHaut[1], pixHaut[0], pixBas[1], pixBas[0])
-cell = labels[arg1:arg2, arg3:arg4]
-
-plt.imshow(cell, cmap = "jet")
-plt.show()
+    found = False
+    
+    #Trouver la colonne
+    for ligne in range(labelsT.shape[0]-1, -1, -1):
+        for colonne in range(labelsT.shape[1]):
+            if i == labelsT[ligne, colonne] and not found:
+                pixBas[1] = ligne
+                found = True
+                break
+        if found:
+            break
+        
+    print(f'pixHaut = {pixHaut}')
+    print(f'pixBas = {pixBas}')
+    # Création du rectangle de rognage
+    #marges
+    '''
+    pixHaut[0] = max([pixHaut[0] - 10, 0])
+    pixHaut[1] = max([pixHaut[1] - 10, 0])
+    pixBas[0] = max([pixBas[0] + 10, 0])
+    pixBas[1] = max([pixBas[1] + 10, 0])
+    '''
+    marge = 12
+    arg1 = max(min([pixHaut[0], pixBas[0]])-marge, 0)
+    arg2 = min(max([pixHaut[0], pixBas[0]])+marge, labels.shape[0])
+    arg3 = max(min([pixHaut[1], pixBas[1]])-marge, 0)
+    arg4 = min(max([pixHaut[1], pixBas[1]])+marge, labels.shape[1])
+    
+    #Carrétisation de l'image
+    if arg2 - arg1 > arg4-arg3:
+        while not(arg2 - arg1 == arg4-arg3):
+            if arg4 == labels.shape[1]:
+                arg3-=1
+            else:
+                arg4+=1
+    else:
+        while not(arg2 - arg1 == arg4-arg3):
+            if arg2 == labels.shape[0]:
+                arg1 -= 1
+            else:
+                arg2+=1
+            
+    
+    cell = img[arg1:arg2+1, arg3:arg4+1]
+    allcells.append(cell)
 
 
 
