@@ -9,15 +9,16 @@ Created on Wed Mar 13 14:20:08 2019
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage as ndi
-
+from PIL import Image
 from skimage.morphology import watershed
 from skimage.feature import peak_local_max
 
 import cv2
-path = 'x0.75_AetVit.jpg'
-#NR_A,B,C.jpg
-#x0.75_AetVit.jpg
-#NR_AetD.jpg
+path = 'x0.75_AetVit.jpg' # Beaucoup de cellules
+path='NR_A,B,C.jpg' #Tâche noire en haut
+path='NR_AetD.jpg' # Amas de cellules divisé en régions
+#path='x0.75_A.jpg' #peu de cellules
+#path='x0.75_A bis.jpg' #une seule cellule
 img = cv2.imread(path)
 
 # Resize
@@ -30,15 +31,16 @@ gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 #plt.show()
 normalizedImg = np.zeros(gray.shape)
 normalizedImg = cv2.normalize(gray, normalizedImg, 0, 255, cv2.NORM_MINMAX)
-
+"""
 for line in range(normalizedImg.shape[0]):
     for i in range(normalizedImg.shape[1]):
-        if normalizedImg[line][i] < 10:
+        if normalizedImg[line][i] <40 :
             normalizedImg[line][i] = normalizedImg[line][i]*normalizedImg[line][i]
-            
+            """
 #plt.imshow(normalizedImg, cmap='gray')
 #plt.show()
 ret, thresh = cv2.threshold(normalizedImg,0,1 ,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+
 
 # noise removal
 kernel = np.ones((3,3),np.uint8)
@@ -47,7 +49,9 @@ opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel, iterations = 2)
 sure_bg = cv2.dilate(opening,kernel,iterations=3)
 # Finding sure foreground area
 dist_transform = cv2.distanceTransform(opening,cv2.DIST_L2,5)
-ret, sure_fg = cv2.threshold(dist_transform,0.3*dist_transform.max(),255,0)
+#dist_transform[dist_transform>10] /=5
+coeff = min(dist_transform.max(), 10)
+ret, sure_fg = cv2.threshold(dist_transform,0.4*coeff,255,0)
 
 # Finding unknown region
 sure_fg = np.uint8(sure_fg)
@@ -57,8 +61,8 @@ unknown = cv2.subtract(sure_bg,sure_fg)
 
 
 
-
-distance = ndi.distance_transform_edt(sure_fg)
+distance = dist_transform
+#distance = ndi.distance_transform_edt(sure_fg)
 local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((3, 3)),
                             labels=sure_fg)
 markers = ndi.label(local_maxi)[0]
@@ -88,17 +92,21 @@ plt.show()
 #Liste des valeurs comprises dans les labels
 valeurs_wat = []
 allcells = []
-for i in range(1, 256):
+carres = []   #liste des coordonnées de chaque région
+for i in range(1, labels.max()+1):
     for ligne in labels:
         if i in ligne:
             if i not in valeurs_wat:
                 valeurs_wat.append(i)
 
+print(f"{len(valeurs_wat)} régions détectées")
+print(f'------ Rognage ------\n')
 
+lastprint = 0 #Dernier pourcentage affiché sur la console
+print(f'0 % effectués, {len(valeurs_wat)} régions à traiter, {len(allcells)} cellules détectées')
 
 #labels = np.array([[0,0,0,0,0],[0 ,0, 1, 0, 0],[0, 1, 1, 1, 0],[0, 0, 1, 0, 0],[0,0,0,0,0]])
 labelsT = labels.transpose()
-print(labels)
 for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur
     #trouver le pixel du haut gauche
     pixHaut = [0, 0] #[y, x]
@@ -145,18 +153,12 @@ for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (
                 break
         if found:
             break
-        
-    print(f'pixHaut = {pixHaut}')
-    print(f'pixBas = {pixBas}')
+    
+    
     # Création du rectangle de rognage
     #marges
-    '''
-    pixHaut[0] = max([pixHaut[0] - 10, 0])
-    pixHaut[1] = max([pixHaut[1] - 10, 0])
-    pixBas[0] = max([pixBas[0] + 10, 0])
-    pixBas[1] = max([pixBas[1] + 10, 0])
-    '''
-    marge = 12
+    
+    marge = 16
     arg1 = max(min([pixHaut[0], pixBas[0]])-marge, 0)
     arg2 = min(max([pixHaut[0], pixBas[0]])+marge, labels.shape[0])
     arg3 = max(min([pixHaut[1], pixBas[1]])-marge, 0)
@@ -175,13 +177,102 @@ for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (
                 arg1 -= 1
             else:
                 arg2+=1
-            
     
-    cell = img[arg1:arg2+1, arg3:arg4+1]
-    allcells.append(cell)
+    cell = gray[arg1:arg2+1, arg3:arg4+1]
+    added = False
+    #suppression des images trop petites, trop grandes ou trop sombres
+    if(68 > cell.shape[0] > 35 and cell.mean() > 90):
+        allcells.append(cell)
+        added = True
+        carres.append([arg1, arg2+1, arg3, arg4+1])
+        
+    #Affichage de l'avancement de l'algorithme
+    
+    pct = int(100 * i / len(valeurs_wat))
+    if added:
+        print('+', end='')
+    else:
+        print('#', end='')
+    if (pct % 10 == 0) and lastprint != pct:
+        print(f'\n{pct} % effectués, {i}/{len(valeurs_wat)} régions traitées, {len(allcells)} cellules détectées')
+        lastprint = pct
 
+danger = False
+print('')
+if len(allcells) / len(valeurs_wat) <= 0.6:
+    print("/!\\ ATTENTION /!\\")
+    print("Il est possible qu'un amas de cellules ait falcifié l'analyse ou que l'image ait été difficilement traitée.\n")
+    danger = True
+        
+# Suppression des éventuels doublons
+print(f'------ Suppression des éventuels doublons ------\n')
+to_delete = []
+seuil_acceptable = 0.5
+cpti = 0
+for i in carres:
+    cptj = cpti+1
+    # éviter de traîter les doublons déjà supprimés
+    if cpti not in to_delete:
+        for j in carres[cpti+1:]:
+            if not (j[1] < i[0] or i[1] < j[0] or i[3] < j[2] or j[3] < i[2]):
+                #recouvrement
+                #Calcul de la zone de recouvrement
+                dy = 0
+                dx = 0
+                #en y 
+                if i[0] < j[0] and j[1] < i[1]:
+                    #j inclus a dans i
+                    dy = j[1] - j[0]
+                elif j[0] < i[0] and i[1] < j[1]:
+                    #i inclus dans i
+                    dy = i[1] - i[0]
+                elif j[1] - i[0] < min(j[1] - j[0], i[1] - i[0]):
+                    #j plus haut que i
+                    dy = j[1] - i[0]
+                else:
+                    #i est alors forcément plus haut que i
+                    dy = i[1] - j[0]
+                    
+                #en x 
+                if i[2] < j[2] and j[3] < i[3]:
+                    #j inclus a dans i
+                    dx = j[3] - j[2]
+                elif j[2] < i[2] and i[3] < j[3]:
+                    #i inclus dans i
+                    dx = i[3] - i[2]
+                elif j[3] - i[2] < min(j[3] - j[2], i[3] - i[2]):
+                    #j plus à gauche que i
+                    dx = j[3] - i[2]
+                else:
+                    #i est alors forcément plus à gauche que i
+                    dx = i[3] - j[2]
+                    
+                #Calcul du pourcentage de recouvrement de i
+                recouvrement = dy * dx / ((i[1] - i[0]) * (i[3] - i[2]))
+                if recouvrement > seuil_acceptable and cptj not in to_delete:
+                    to_delete.append(cptj)
+            cptj += 1
+    cpti += 1
 
+#suppression des doublons par la fin pour être sûr de supprimer les bons éléments
+to_delete.sort()
+for d in to_delete[::-1]:
+    allcells.pop(d)
 
+print("100% effectués")
+print(f"{len(to_delete)} images présentant plus de {int(seuil_acceptable*100)}% de similarité à au moins une autre image ont été supprimées")
+print(f"{len(allcells)} cellules détectées sur la photo\n")
+
+# Mise à la bonne taille pour l'IA
+print(f'------ Normalisation de la taille des images des cellules ------\n')
+picallcells = []
+for image in allcells:
+    picallcells.append(Image.fromarray(image).resize((40, 40), resample=Image.LANCZOS))
+print("100% effectués\n")
+
+for im in picallcells:
+    plt.imshow(im, cmap = 'gray')
+    plt.show()
 
 
 
