@@ -15,7 +15,7 @@ from skimage.feature import peak_local_max
 import os
 import cv2
 
-parent_path = 'photos/03_05/x1' # Beaucoup de cellules
+parent_path = 'photos/2019_03_21 manip 5/f9' # Beaucoup de cellules
 listpath = os.listdir('./'+parent_path)
 for p in listpath:
     path = parent_path + '/' + p
@@ -33,8 +33,8 @@ for p in listpath:
     
     # Resize
     dim = img.shape
-    factdiv = 5
-    newDim = (int(dim[1] / factdiv), int(dim[0] / factdiv))
+    factdiv = dim[0] / 388
+    newDim = (518, 388)
     img = cv2.resize(img, dsize=newDim, interpolation=cv2.INTER_CUBIC)
     
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -90,6 +90,7 @@ for p in listpath:
     
     fig.tight_layout()
     plt.show()
+    fig.savefig(path[0:-4]+"/Details.png", format="png", dpi=200)
     
     ###############################################################################
     #              ROGNAGE                                                        #
@@ -210,7 +211,7 @@ for p in listpath:
         print("Il est possible qu'un amas de cellules ait falcifié l'analyse ou que l'image ait été difficilement traitée.\n")
         danger = True
             
-    grandscarres = np.array(carres) * 5
+    grandscarres = (np.array(carres) * factdiv).round().astype(int)
     allgrandcell = []
     for mask in grandscarres:
         allgrandcell.append(gdgray[mask[0]:mask[1], mask[2]:mask[3]])
@@ -218,7 +219,7 @@ for p in listpath:
     # Suppression des éventuels doublons
     print(f'------ Suppression des éventuels doublons ------\n')
     to_delete = []
-    seuil_acceptable = 0.7
+    seuil_acceptable = 0.75
     cpti = 0
     for i in carres:
         cptj = cpti+1
@@ -271,7 +272,6 @@ for p in listpath:
         allcells.pop(d)
         allgrandcell.pop(d)
     
-    allcells*=factdiv
     
     print("100% effectués")
     print(f"{len(to_delete)} images présentant plus de {int(seuil_acceptable*100)}% de similarité avec au moins une autre image ont été supprimées")
