@@ -2,7 +2,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-
+import opencv2 as cv2
 
 #askip la fonction permet de transformer une image en array...enfin je crois
 #En tout cas,on devrait pouvoir l'utiliser pour l'apprentissage 
@@ -30,6 +30,13 @@ def decode_image(image_file_names, resize_func=None):
         session.close()
     
     return images
+
+#Celle là fonctionne sans doute mieux que le pâté du dessus(et surtout,je la comprend)
+def convert_image(file):
+    img2 = cv2.imread(file)
+    img2= cv2.resize(img2,dsize=(299,299), interpolation = cv2.INTER_CUBIC)
+    np_image_data = np.asarray(img2)
+    np_final = np.expand_dims(np_image_data,axis=0) #convert to float
 
 #mnist= #dataset des images
 
