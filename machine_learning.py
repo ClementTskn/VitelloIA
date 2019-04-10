@@ -2,45 +2,47 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import opencv2 as cv2
-
-#askip la fonction permet de transformer une image en array...enfin je crois
-#En tout cas,on devrait pouvoir l'utiliser pour l'apprentissage 
-#lien : https://www.kaggle.com/freeman89/create-dataset-with-tensorflow
-
-def decode_image(image_file_names, resize_func=None):
-    
-    images = []
-    
-    graph = tf.Graph()
-    with graph.as_default():
-        file_name = tf.placeholder(dtype=tf.string)
-        file = tf.read_file(file_name)
-        image = tf.image.decode_jpeg(file)
-        if resize_func != None:
-            image = resize_func(image)
-    
-    with tf.Session(graph=graph) as session:
-        tf.initialize_all_variables().run()   
-        for i in range(len(image_file_names)):
-            images.append(session.run(image, feed_dict={file_name: image_file_names[i]}))
-            if (i+1) % 1000 == 0:
-                print('Images processed: ',i+1)
-        
-        session.close()
-    
-    return images
+import cv2
+import os, sys
 
 #Celle là fonctionne sans doute mieux que le pâté du dessus(et surtout,je la comprend)
 def convert_image(file):
     img2 = cv2.imread(file)
-    img2= cv2.resize(img2,dsize=(299,299), interpolation = cv2.INTER_CUBIC)
-    np_image_data = np.asarray(img2)
+    img2= cv2.resize(img2,dsize=(500,500), interpolation = cv2.INTER_CUBIC)
+    gray_image = cv2.cvtColor( img2,cv2.COLOR_BGR2GRAY )
+    np_image_data = np.asarray(gray_image)
     np_final = np.expand_dims(np_image_data,axis=0) #convert to float
+    return np_final
 
 #mnist= #dataset des images
+    
+#Reconnaissance faciale : https://github.com/msilanus/faceReco (Juste car c'est tout de même stylé)
 
-(x_train,y_train),(x_test,y_test)=mnist.load_data() 
+
+#On convertie les images en matrices,puis on place ces matrices dans une autre matric,créant ainsi un tenseur d'ordre 3
+#On obtient ainsi une dataset sur laquelle on pourra se balader pour chopper toutes les infos nécessaires
+#Il faut encore déterminer comment se balader dans le fichier pour que le programme navigue dans le dossier des images et 
+#entre les données dans le tenseur
+
+'''img_convert=cv2.imread('/home/benjamin.massoteau/NR_A,B,C.jpg')
+img_convert=cv2.resize(img_convert,dsize=(500,500),interpolation=cv2.INTER_CUBIC)
+plt.imshow(img_convert)'''
+
+path = "/home/benjamin.massoteau/image_projet"
+dirs = os.listdir( path )
+i=0
+#A arranger
+data=np.zeros(50,0)
+for file in dirs:
+   img=convert_image(file)
+   data[i]=img
+   i+=1
+j=0   
+while data[j]!=0:
+    data_finale=data[j]
+        
+#Programme d'entraînement à adapter une fois que la dataset sera prête
+"""(x_train,y_train),(x_test,y_test)=mnist.load_data() 
 #Sans doute plus compliqué que ça,recherche à faire pour avoir la dataset comme il faut
 
 x_train = tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1)
@@ -57,4 +59,7 @@ model.add(tf.keras.layers.Dense(6, activation=tf.nn.softmax)) #6 noeuds : 1 par 
 
 model.compile(optimizer='adam',
               loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
+              metrics=['accuracy']) #A adapter si jamais t'arrives à comprendre les différents param' proposés
+
+plt.imshow(image,cmap=plt.cm.binary) #Voir l'image
+plt.show()"""
