@@ -19,27 +19,23 @@ def convert_image(file):
 #Reconnaissance faciale : https://github.com/msilanus/faceReco (Juste car c'est tout de même stylé)
 
 
-#On convertie les images en matrices,puis on place ces matrices dans une autre matric,créant ainsi un tenseur d'ordre 3
+#On convertie les images en matrices,puis on place ces matrices dans une autre matrice,créant ainsi un tenseur d'ordre 3
 #On obtient ainsi une dataset sur laquelle on pourra se balader pour chopper toutes les infos nécessaires
 #Il faut encore déterminer comment se balader dans le fichier pour que le programme navigue dans le dossier des images et 
 #entre les données dans le tenseur
 
-'''img_convert=cv2.imread('/home/benjamin.massoteau/NR_A,B,C.jpg')
-img_convert=cv2.resize(img_convert,dsize=(500,500),interpolation=cv2.INTER_CUBIC)
-plt.imshow(img_convert)'''
-
-path = "/home/benjamin.massoteau/image_projet"
+#Les images sont converties en array et sont placés dans un tenseur d'ordre 3
+path = "/home/benjamin.massoteau/image_projet/"
 dirs = os.listdir( path )
+n=len(dirs)
+data=[]
 i=0
-#A arranger
-data=np.zeros(50,0)
-for file in dirs:
-   img=convert_image(file)
-   data[i]=img
-   i+=1
-j=0   
-while data[j]!=0:
-    data_finale=data[j]
+for i in range(n):
+   img=convert_image(path+dirs[i])
+   data.append(img)
+   
+print(data)
+   
         
 #Programme d'entraînement à adapter une fois que la dataset sera prête
 """(x_train,y_train),(x_test,y_test)=mnist.load_data() 
