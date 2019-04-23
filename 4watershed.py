@@ -43,7 +43,7 @@ def merge_elements(d2):
     return d3
     
 
-parent_path = 'photos/2019_03_21 manip 5/f8' # Beaucoup de cellules
+parent_path = 'photos/2019_03_21 manip 5/f5' # Beaucoup de cellules
 listpath = os.listdir('./'+parent_path)
 for p in listpath:
     path = parent_path + '/' + p
@@ -78,7 +78,7 @@ for p in listpath:
     
     # noise removal
     kernel = np.ones((3,3),np.uint8)
-    opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel, iterations = 2)
+    opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel, iterations = 1)
     # sure background area
     sure_bg = cv2.dilate(opening,kernel,iterations=3)
     # Finding sure foreground area
@@ -103,27 +103,12 @@ for p in listpath:
     
     
     labels = watershed(-distance, markers, mask=sure_fg)
-    fig, axes = plt.subplots(ncols=3, figsize=(9, 3), sharex=True, sharey=True)
-    ax = axes.ravel()
     
-    ax[0].imshow(normalizedImg, cmap=plt.cm.gray, interpolation='nearest')
-    ax[0].set_title('Overlapping objects')
-    ax[1].imshow(-distance, cmap='gray', interpolation='nearest')
-    ax[1].set_title('Distances')
-    ax[2].imshow(labels, cmap="jet", interpolation='nearest')
-    ax[2].set_title('Separated objects')
-    
-    for a in ax:
-        a.set_axis_off()
-    
-    fig.tight_layout()
-   # plt.show()
-    fig.savefig(path[0:-4]+"/Details.png", format="png", dpi=200)
     
     ###############################################################################
     #              ROGNAGE                                                        #
     ###############################################################################
-    
+
     #Liste des valeurs comprises dans les labels
     valeurs_wat = list(set(labels.flatten().tolist()))[1:]
     allcells = []
@@ -131,21 +116,20 @@ for p in listpath:
     print(f"{len(valeurs_wat)} régions détectées")
     print(f'------ Rognage ------\n')
     
-    lastprint = 0 #Dernier pourcentage affiché sur la console
-    print(f'0 % effectués, {len(valeurs_wat)} régions à traiter, {len(allcells)} cellules détectées')
-    
     labelsT = labels.transpose()
     water_remaining = [] # liste des valeurs de watershed considérées comme des cellules
     for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur
         #trouver le pixel du haut gauche
-        pixHaut = [np.min(np.where(labels==i)[0]), np.min(np.where(labels==i)[1])]
+        nb_it = 3#((np.count_nonzero(labels==i)>100) + (np.count_nonzero(labels==i)>50) +1)
+        temp_labels =cv2.dilate((labels==i).astype(np.uint8),np.ones((5,5), np.uint8),iterations = nb_it)
+        pixHaut = [np.min(np.where(temp_labels==1)[0]), np.min(np.where(temp_labels==1)[1])]
        
         #Trouver le pixel du bas droit
-        pixBas = [np.max(np.where(labels==i)[0]), np.max(np.where(labels==i)[1])]
+        pixBas = [np.max(np.where(temp_labels==1)[0]), np.max(np.where(temp_labels==1)[1])]
         # Création du rectangle de rognage
         #marges
         
-        marge = 16
+        marge = 0
         arg1 = max(min([pixHaut[0], pixBas[0]])-marge, 0)
         arg2 = min(max([pixHaut[0], pixBas[0]])+marge, labels.shape[0])
         arg3 = max(min([pixHaut[1], pixBas[1]])-marge, 0)
@@ -168,37 +152,25 @@ for p in listpath:
         cell = gray[arg1:arg2+1, arg3:arg4+1]
         added = False
         #suppression des images trop petites, trop grandes ou trop sombres
-        if(60 > cell.shape[0] > 3): #and cell.mean() > 90):
+        if(cell.shape[0] > 0): #and cell.mean() > 90):
             allcells.append(cell)
             added = True
             carres.append([arg1, arg2+1, arg3, arg4+1])
             water_remaining.append(i)
-
-            
-        #Affichage de l'avancement de l'algorithme
         
-        pct = int(100 * i / len(valeurs_wat))
-        if added:
-            print('+', end='')
-        else:
-            print('#', end='')
-        if (pct % 10 == 0) and lastprint != pct:
-            print(f'\n{pct} % effectués, {i}/{len(valeurs_wat)} régions traitées, {len(allcells)} cellules détectées')
-            lastprint = pct
-    
     danger = False
-    print('')
+    print(f'{len(water_remaining)} cellules ajoutées')
     if len(allcells) / len(valeurs_wat) <= 0.6:
         print("/!\\ ATTENTION /!\\")
         print("Il est possible qu'un amas de cellules ait falcifié l'analyse ou que l'image ait été difficilement traitée.\n")
         danger = True
-            
-    
-    temp = (np.array(carres)).astype(int)
+        
+    temp = (np.array(carres)).astype(int)        
     carres = np.zeros((temp.shape[0], temp.shape[1] + 1))
     carres[:,:-1] = temp
     carres[:,-1] = np.array(water_remaining)
     carres = carres.astype(int)
+    
     
     # Fusion des éventuels doublons
     print(f'------ Fusion des éventuels doublons ------\n')
@@ -246,7 +218,7 @@ for p in listpath:
                     
                 #Calcul du pourcentage de recouvrement de i
                 recouvrement = dy * dx / ((i[1] - i[0]) * (i[3] - i[2]))
-                if recouvrement > seuil_acceptable and cptj not in to_delete:
+                if recouvrement > seuil_acceptable:
                     to_delete.append(cptj)
                     doublons_i.append(j[4])
             cptj += 1
@@ -261,31 +233,20 @@ for p in listpath:
             for value in d[1:]:
                 # Fusion des zones
                 labels[labels == value] = d[0]
-                
-
-    '''
-    #suppression des doublons par la fin pour être sûr de supprimer les bons éléments
-    to_delete.sort()
-    for d in to_delete[::-1]:
-        allcells.pop(d)
-        allgrandcell.pop(d)
-    '''
+    print("100 % effectués")
     
     #Liste des valeurs comprises dans les labels
     valeurs_wat = list(set(labels.flatten().tolist()))[1:]
     allcells = []
     carres = []   #liste des coordonnées de chaque région
-    print(f"{len(valeurs_wat)} régions détectées")
-    print(f'------ Rognage ------\n')
-    
-    lastprint = 0 #Dernier pourcentage affiché sur la console
-    print(f'0 % effectués, {len(valeurs_wat)} régions à traiter, {len(allcells)} cellules détectées')
+    print(f"{len(valeurs_wat)} restantes après fusion")
+    print(f'------ Mise à jour des régions ------\n')
     
     labelsT = labels.transpose()
     water_remaining = [] # liste des valeurs de watershed considérées comme des cellules
     for i in valeurs_wat:                       #Pour chaque cellule à ségmenter (pour chaque couleur
         #trouver le pixel du haut gauche
-        temp_labels =cv2.dilate((labels==i).astype(np.uint8),np.ones((5,5), np.uint8),iterations = 4)
+        temp_labels =cv2.dilate((labels==i).astype(np.uint8),np.ones((5,5), np.uint8),iterations = 7)
         pixHaut = [np.min(np.where(temp_labels==1)[0]), np.min(np.where(temp_labels==1)[1])]
        
         #Trouver le pixel du bas droit
@@ -321,19 +282,7 @@ for p in listpath:
             added = True
             carres.append([arg1, arg2+1, arg3, arg4+1])
             water_remaining.append(i)
-
-            
-        #Affichage de l'avancement de l'algorithme
         
-        pct = int(100 * i / len(valeurs_wat))
-        if added:
-            print('+', end='')
-        else:
-            print('#', end='')
-        if (pct % 10 == 0) and lastprint != pct:
-            print(f'\n{pct} % effectués, {i}/{len(valeurs_wat)} régions traitées, {len(allcells)} cellules détectées')
-            lastprint = pct
-    
     danger = False
     print('')
     if len(allcells) / len(valeurs_wat) <= 0.6:
@@ -347,6 +296,11 @@ for p in listpath:
     carres[:,-1] = np.array(water_remaining)
     carres = carres.astype(int)
     
+    
+    
+    
+    
+    
     temp = (np.array(carres[:, :-1]) * factdiv).round().astype(int)
     grandscarres = np.zeros((temp.shape[0], temp.shape[1] + 1))
     grandscarres[:,:-1] = temp
@@ -358,7 +312,7 @@ for p in listpath:
     allgrandcell = []
     allcells2 = []
     for mask in grandscarres:
-        allgrandcell.append(np.multiply(gdgray, cv2.dilate((grands_labels==mask[4]).astype(np.uint8),np.ones((5,5), np.uint8),iterations = 4))[mask[0]:mask[1], mask[2]:mask[3]])
+        allgrandcell.append(np.multiply(gdgray, cv2.dilate((grands_labels==mask[4]).astype(np.uint8),np.ones((5,5), np.uint8),iterations = 7))[mask[0]:mask[1], mask[2]:mask[3]])
     
     print("100% effectués")
     print(f"{len(to_delete)} images présentant plus de {int(seuil_acceptable*100)}% de similarité avec au moins une autre image ont été supprimées")
@@ -367,6 +321,7 @@ for p in listpath:
     # Mise à la bonne taille pour l'IA
     print(f'------ Normalisation de la taille des images des cellules ------\n')
     picallcells = []
+    cpt_gd_cells = 0
     for image in allgrandcell:
         if max(image.shape[0], image.shape[1]) < 100:
             bkgrd = np.zeros((100,100))
@@ -379,9 +334,11 @@ for p in listpath:
             bkgrd[lower:upper, left:right] = image
         else:
             bkgrd = image
+            cpt_gd_cells += 1
         picallcells.append(Image.fromarray(bkgrd).resize((80, 80), resample=Image.LANCZOS).convert("L"))
     print("100% effectués\n")
-    
+    if cpt_gd_cells >1:
+        danger = True
     for im in allgrandcell:
         pass
         #plt.imshow(im, cmap='gray')
@@ -397,6 +354,23 @@ for p in listpath:
     #######################################################################################################
     #   COMPTE RENDU
     
+    fig, axes = plt.subplots(ncols=3, figsize=(9, 3), sharex=True, sharey=True)
+    ax = axes.ravel()
+    
+    ax[0].imshow(normalizedImg, cmap=plt.cm.gray, interpolation='nearest')
+    ax[0].set_title('Overlapping objects')
+    ax[1].imshow(-distance, cmap='gray', interpolation='nearest')
+    ax[1].set_title('Distances')
+    ax[2].imshow(labels, cmap="jet", interpolation='nearest')
+    ax[2].set_title('Separated objects')
+    
+    for a in ax:
+        a.set_axis_off()
+    
+    fig.tight_layout()
+   # plt.show()
+    fig.savefig(path[0:-4]+"/Details.png", format="png", dpi=200)
+    
     file = open(path[:-4] + "/Rapport.txt", 'w')
     file.write("Rapport d'analyse d'image\n")
     file.write("-------------------------\n\n")
@@ -410,8 +384,7 @@ for p in listpath:
     file.write('---------------------\n\n')
     file.write("- Fichier : " + os.getcwd() + '/' + path + "\n")
     file.write("- Nombre de régions détectées par Watershed : " + str(len(valeurs_wat))+"\n")
-    file.write(f"- Nombre de cellules supprimées après filtrage\n  (trop grandes, trop petites ou trop sombres) : {len(valeurs_wat)-len(allgrandcell)-len(to_delete)}\n")
-    file.write(f"- {len(to_delete)} images présentant plus de {int(seuil_acceptable*100)}% de similarité\n  avec au moins une autre image ont été supprimées\n")
+    file.write(f"- Nombre de cellules supprimées après filtrage\n  (trop grandes, trop petites ou trop sombres) : {len(valeurs_wat)-len(allgrandcell)}\n")
     file.close()
 
 print("finished")
