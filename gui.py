@@ -384,8 +384,7 @@ from tkinter import ttk
 from tkinter.filedialog import askopenfilename
 from PIL import ImageTk
 from PIL import Image
-from is_it_dark import is_it_dark
-from tensorflow.keras import layers, models
+from tensorflow.keras import models
 import datetime
 # Création de la fenêtre
 window = Tk()
