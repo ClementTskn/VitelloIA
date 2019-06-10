@@ -35,6 +35,7 @@ def image_generator(directory=".",
     '''
     # List all the images of the directory
     all_img_list = os.listdir('./'+directory)
+    myprint(all_img_list, verbose)
     # Only keep the images
     to_delete = []
     for file in all_img_list:
@@ -49,13 +50,55 @@ def image_generator(directory=".",
     
     # Openning each image one by one
     for file in all_img_list:
-        image = Image.open("./" + file)
-        if rotate[0]:
-            rotation = rotate[1]
-            while rotation < 360-rotate[1]:
-                # à continuer ici
+        name = "./" + directory + "/" + file
+        image = Image.open(name)
+        rotation = rotate[1]
+        while rotation <= 360-rotate[1]:
+            # Rotations
+            if rotate[0]:
+                new_image = image.rotate(rotation)
+                # Saving transformed image
+                new_image.save(name+"_r=" + str(rotation)+".png", format="PNG")
+            else:
+                new_image = image
+            
+            # Mirror
+            if h_mirror:
+                # Saving transformed image
+                new_image.transpose(Image.FLIP_TOP_BOTTOM).save(name+"_r=" + str(rotation)+"_hmir"+".png", format="PNG")
+            if v_mirror:
+                # Saving transformed image
+                new_image.transpose(Image.FLIP_LEFT_RIGHT).save(name+"_r=" + str(rotation)+"_vmir"+".png", format="PNG")
+            if v_mirror and h_mirror:
+                # Saving transformed image
+                new_image.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.FLIP_TOP_BOTTOM).save(name+"_r=" + str(rotation)+"_hvmir"+".png", format="PNG")
+            
+            if rotate[0]:
                 rotation += rotate[1]
-        print(type(image))
+            else:
+                rotation = 360
    
 if __name__ == '__main__':
-    image_generator()
+    image_generator('photos/cellules classées/vitreg/Regression amas', rotate=(True, 20), h_mirror=True, v_mirror=True)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
